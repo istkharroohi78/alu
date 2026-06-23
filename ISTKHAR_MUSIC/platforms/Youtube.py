@@ -14,6 +14,7 @@ import time
 import aiofiles
 import aiohttp
 import shutil
+import random
 from typing import Dict, List, Optional, Tuple, Union
 
 import yt_dlp
@@ -259,6 +260,16 @@ class YouTubeAPI:
         return bool(self._url_pattern.search(self._prepare_link(link, videoid)))
 
     @capture_internal_err
+    async def _fetch_video_info(self, query: str, *, use_cache: bool = True) -> Optional[Dict]:
+        q = self._prepare_link(query)
+        if use_cache and not q.startswith("http"):
+            res = await cached_youtube_search(q)
+            return res[0] if res else None
+        data = await VideosSearch(q, limit=1).next()
+        result = data.get("result", [])
+        return result[0] if result else None
+
+    @capture_internal_err
     async def details(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], int, str, str]:
         link = self._prepare_link(link, videoid)
         try:
@@ -388,5 +399,77 @@ class YouTubeAPI:
             yt_result = await download_audio_ytdlp(link)
             if yt_result: return yt_result, True
             return None, None
+
+    # 🟢 FULLY RESTORED AUTOPLAY FUNCTION
+    @capture_internal_err
+    async def autoplay(self, last_vidid: str, title: str, max_duration: int = None):
+        try:
+            search_query = f"{title} official audio"
+            valid_choices = []
+            
+            try:
+                search = VideosSearch(search_query, limit=15)
+                result = await search.next()
+                if result and result.get("result"):
+                    for res in result["result"]:
+                        vidid = str(res.get("id") or "")
+                        if not vidid or vidid == "None" or vidid == last_vidid: continue
+                            
+                        dur_str = str(res.get("duration", "0:00"))
+                        dur_sec = 0
+                        if dur_str and ":" in dur_str:
+                            parts = dur_str.split(":")
+                            try:
+                                if len(parts) == 2: dur_sec = int(parts[0]) * 60 + int(parts[1])
+                                elif len(parts) == 3: dur_sec = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                            except ValueError: pass
+                                
+                        if dur_sec < 30: continue
+                        if max_duration and dur_sec > max_duration: continue
+                            
+                        valid_choices.append({
+                            "vidid": vidid,
+                            "title": str(res.get("title", "Unknown Title")).title(),
+                            "duration_min": dur_str,
+                            "duration_sec": dur_sec
+                        })
+            except Exception: pass 
+
+            if not valid_choices:
+                ytdl_opts = {"quiet": True, "extract_flat": True, "noplaylist": True, "cookiefile": "cookies.txt"} 
+                
+                def extract():
+                    with yt_dlp.YoutubeDL(ytdl_opts) as ydl: return ydl.extract_info(f"ytsearch10:{search_query}", download=False)
+                r = await asyncio.get_event_loop().run_in_executor(None, extract)
+                
+                if r and "entries" in r:
+                    for entry in r["entries"]:
+                        vidid = entry.get("id")
+                        if not vidid or vidid == last_vidid: continue
+                        
+                        raw_dur = entry.get("duration", 0)
+                        try: dur_sec = int(float(raw_dur)) if raw_dur else 0
+                        except (ValueError, TypeError): dur_sec = 0
+                            
+                        if not dur_sec or dur_sec < 30: continue
+                        if max_duration and dur_sec > max_duration: continue
+                            
+                        m, s = divmod(dur_sec, 60)
+                        h, m = divmod(m, 60)
+                        dur_str = f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+                        
+                        valid_choices.append({
+                            "vidid": vidid,
+                            "title": str(entry.get("title", "Unknown Title")).title(),
+                            "duration_min": dur_str,
+                            "duration_sec": dur_sec
+                        })
+
+            if valid_choices: return random.choice(valid_choices)
+            return None
+            
+        except Exception as e:
+            LOGGER("ISTKHAR_MUSIC").error(f"YouTube Autoplay Function Error: {e}")
+            return None
 
 YouTube = YouTubeAPI()
