@@ -433,6 +433,15 @@ class Call:
                         _["call_6"], disable_web_page_preview=True
                     )
 
+                # --- 🛑 THE FIX 🛑 ---
+                if not file_path:
+                    await _clear_(chat_id)
+                    return await mystic.edit_text(
+                        "❌ **Error:** Failed to extract media. The video might be age-restricted, blocked, or unavailable.", 
+                        disable_web_page_preview=True
+                    )
+                # ---------------------
+
                 stream = dynamic_media_stream(path=file_path, video=video)
                 try:
                     await client.play(chat_id, stream)
