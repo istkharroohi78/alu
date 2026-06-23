@@ -1,4 +1,4 @@
-import asyncio
+import asyncio    
 import random
 import re
 import time
@@ -761,7 +761,7 @@ async def get_best_song(chat_id, queries, last_title, last_vidid, artist, movie,
                         "duration_min": duration_str,
                         "thumb": thumb,
                         "vidid": vidid,
-                        "link": f"https://youtube.com/watch?v={vidid}",
+                        "link": f"https://youtu.be/{vidid}",
                     }
 
                     candidates.append((score, vidid, details))
@@ -973,7 +973,7 @@ async def auto_play_next(
         new_artist = extract_artist(new_title) if new_title else ""
         await add_recent(chat_id, vidid, new_title, new_artist)
 
-        link = f"https://youtube.com/watch?v={vidid}"
+        link = f"https://youtu.be/{vidid}"
 
         try:
             thumb = details.get("thumb", "")
