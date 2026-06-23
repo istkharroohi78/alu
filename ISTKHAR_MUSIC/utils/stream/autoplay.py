@@ -9,10 +9,12 @@ try:
 except ImportError:
     _unidecode = None
 
+from py_yt import VideosSearch  # 🟢 FIX: Directly import VideosSearch
+
 from ISTKHAR_MUSIC import app
 from ISTKHAR_MUSIC.core.mongo import mongodb
 from ISTKHAR_MUSIC.misc import db
-from ISTKHAR_MUSIC.platforms.Youtube import YouTubeAPI, youtube_search_multi
+from ISTKHAR_MUSIC.platforms.Youtube import YouTubeAPI
 
 yt = YouTubeAPI()
 autoplay_db = mongodb.autoplay
@@ -642,21 +644,6 @@ async def get_best_song(chat_id, queries, last_title, last_vidid, artist, movie,
     """
     Search multiple queries, fetch up to 8 results each, score all candidates
     and return the best non-repeated song.
-
-    Filtering rules (hard-skip — song is excluded entirely):
-    1. Duration < 2 min or > 7 min.
-    2. Bad content types (slowed, reverb, karaoke, etc.).
-    3. Already in RECENT (last 60 songs / 6 hours).
-    4. Devotional content (bhajan/aarti/chalisa) when current mood is NOT devotional.
-    5. Wrong language — e.g. hindi session picks up bhojpuri/haryanvi/tamil.
-
-    Scoring (higher = better match):
-    - Title word overlap with current song.
-    - Artist match.
-    - Movie match.
-    - Language match.
-    - Mood match.
-    - Penalty if same artist has appeared many times recently (for variety).
     """
     candidates = []
     original_words = last_title.lower().split()
@@ -678,7 +665,11 @@ async def get_best_song(chat_id, queries, last_title, last_vidid, artist, movie,
 
     for q in shuffled:
         try:
-            raw_results = await youtube_search_multi(q, limit=8)
+            # 🟢 FIX: Direct py_yt VideosSearch ka use
+            search = VideosSearch(q, limit=8)
+            search_data = await search.next()
+            raw_results = search_data.get("result", []) if search_data else []
+            
             if not raw_results:
                 continue
 
@@ -699,16 +690,10 @@ async def get_best_song(chat_id, queries, last_title, last_vidid, artist, movie,
                         continue
 
                     # 2. Exact same song title — compare AFTER normalizing both
-                    # (includes unidecode so "तुम ही हो" == "Tum Hi Ho" after norm)
                     if normalize_title(raw_title) == normalize_title(last_title):
                         continue
 
-                    # 3. Duration 2–10 min (HH:MM:SS parsed correctly)
-                    # BUG FIX: total_mins == 0 means duration was "0:00" or unknown
-                    # (YouTube API sometimes omits it). Old code filtered these out
-                    # which caused autoplay to find zero songs after 2–3 tracks.
-                    # Allow unknown-duration songs through; only hard-block when
-                    # the duration is known AND out of range.
+                    # 3. Duration 2–10 min
                     total_mins = _parse_duration_mins(duration_str)
                     if total_mins != 0 and (total_mins < 2 or total_mins > 10):
                         continue
@@ -757,7 +742,7 @@ async def get_best_song(chat_id, queries, last_title, last_vidid, artist, movie,
                         if any(x in title_lower for x in MOOD_DB.get(mood, [])):
                             score += 15
 
-                    # Artist repetition penalty — if this artist dominated recently, reduce score
+                    # Artist repetition penalty
                     if artist:
                         same_count = recent_artists_list.count(artist.lower())
                         if same_count >= 3:
@@ -795,7 +780,6 @@ async def get_best_song(chat_id, queries, last_title, last_vidid, artist, movie,
     candidates.sort(key=lambda x: x[0], reverse=True)
 
     # Pick randomly among top-3 — prevents always picking the same winner
-    # when multiple songs have close scores
     top_pool = candidates[:3]
     best = random.choice(top_pool)
     return best[1], best[2]
@@ -833,13 +817,6 @@ def get_indian_emoji():
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🚀 MAIN AUTOPLAY FUNCTION
-#
-# FIX 1: last_vidid param added — current song added to RECENT before
-#         searching so it can never be picked as the next song.
-#         get_best_song also hard-skips repeats (not just penalises).
-# FIX 2: stop_stream() removed — assistant stays in VC between songs.
-#         Stream ended naturally so bot is already in VC; calling
-#         stop_stream() was the only reason it was leaving and rejoining.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 async def auto_play_next(
@@ -906,15 +883,13 @@ async def auto_play_next(
             chat_id, queries, last_title, last_vidid, artist, movie, mood, lang
         )
 
-        # Fallback chain — applies ALL the same hard filters (devotional, lang,
-        # duration, repeat) so wrong-genre songs can't sneak in via fallback.
+        # Fallback chain
         if not vidid:
             blocked_langs = set(INCOMPATIBLE_LANGS.get(lang, []))
             fallback_queries = []
             if movie:
                 fallback_queries += [f"{movie} jukebox", f"{movie} all songs"]
             if artist:
-                # If same artist dominated recently, use similar artists
                 same_count = recent_artists_list.count(artist.lower())
                 if same_count >= 3:
                     for sim in SIMILAR_ARTISTS.get(artist.lower(), [artist]):
@@ -937,33 +912,37 @@ async def auto_play_next(
             details = None
             for fq in fallback_queries:
                 try:
-                    fb_results = await youtube_search_multi(fq, limit=5)
+                    # 🟢 FIX: Yahan bhi Direct py_yt ka use
+                    fb_search = VideosSearch(fq, limit=5)
+                    fb_search_data = await fb_search.next()
+                    fb_results = fb_search_data.get("result", []) if fb_search_data else []
+                    
                     for fb_info in fb_results:
                         fb_vidid = fb_info.get("id", "")
                         if not fb_vidid or fb_vidid == last_vidid:
                             continue
                         fb_title = fb_info.get("title", "")
                         fb_title_lower = fb_title.lower()
-                        # Apply same hard filters as get_best_song
+                        
                         if await is_repeat(chat_id, fb_vidid, fb_title):
                             continue
                         fb_dur = fb_info.get("duration", "0:00") or "0:00"
                         try:
                             fb_mins = _parse_duration_mins(fb_dur)
-                            # Same fix as get_best_song: allow unknown duration (0)
                             if fb_mins != 0 and (fb_mins < 2 or fb_mins > 10):
                                 continue
                         except Exception:
                             pass
-                        # Devotional filter
+                        
                         if mood != "devotional":
                             if any(dw in fb_title_lower for dw in DEVOTIONAL_WORDS):
                                 continue
-                        # Language filter
+                        
                         if blocked_langs:
                             fb_detected_lang = _detect_title_lang(fb_title_lower)
                             if fb_detected_lang and fb_detected_lang in blocked_langs:
                                 continue
+                                
                         thumb_list = fb_info.get("thumbnails") or []
                         fb_thumb = (
                             thumb_list[-1].get("url", "").split("?")[0]
@@ -1006,17 +985,6 @@ async def auto_play_next(
         language = await get_lang(chat_id)
         _ = get_string(language)
 
-        # BUG FIX: stream() has @capture_internal_err which silently swallows
-        # exceptions. If join_call() inside stream() fails (e.g. NoActiveGroupCall,
-        # network error), the decorator catches it and returns None. stream()
-        # then continues: adds song to queue and sends a "now playing" photo —
-        # but NOTHING is actually streaming. This function was returning True
-        # (success) even in that case, so call.py never called leave_call(),
-        # and the bot was stuck in VC playing nothing.
-        #
-        # Fix: after stream(), verify is_active_chat(). A successful join_call()
-        # always calls add_active_chat(). If it's still False, the join failed.
-
         await stream(
             _,
             msg,
@@ -1029,9 +997,9 @@ async def auto_play_next(
                 "thumb": thumb,
             },
             chat_id,
-            "🔁 ᴀᴜᴛᴏᴘʟᴀʏ",
+            "🔁 ᴀᴜᴛᴏᴘʟᴀ",
             original_chat_id,
-            video=video,          # pass through — video mode stays video
+            video=video,
             streamtype="youtube",
         )
 
