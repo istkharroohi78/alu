@@ -132,6 +132,7 @@ async def single_api_download(api_name: str, req_url: str, params: dict, final_p
     return None
 
 async def race_all_apis(video_id: str, download_type: str) -> str:
+    """⚡ ULTRA FAST API RACING: Instant win on first success."""
     os.makedirs("downloads", exist_ok=True)
     ext = "mp4" if download_type == "video" else "mp3"
     file_path = os.path.join("downloads", f"{video_id}.{ext}")
@@ -139,23 +140,33 @@ async def race_all_apis(video_id: str, download_type: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 50000:
         return file_path
 
-    tasks = []
+    tasks = set()
     for api_name, url, key in APIS:
         if url and key:
-            tasks.append(asyncio.create_task(single_api_download(
+            tasks.add(asyncio.create_task(single_api_download(
                 api_name, url, {"url": video_id, "type": download_type, "api_key": key}, file_path
             )))
 
     if not tasks:
         return None
 
-    for completed_task in asyncio.as_completed(tasks):
-        result = await completed_task
-        if result:
-            for t in tasks:
-                if not t.done():
+    # Loop with FIRST_COMPLETED: Kills slow APIs instantly upon first SUCCESS
+    while tasks:
+        done, pending = await asyncio.wait(
+            tasks, 
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        for task in done:
+            result = task.result()
+            if result:
+                # First successful download found! Cancel all other slow APIs.
+                for t in pending:
                     t.cancel()
-            return result
+                return result
+        
+        # If the fastest API failed, we update tasks to the pending ones and check again
+        tasks = pending
 
     return None
 
