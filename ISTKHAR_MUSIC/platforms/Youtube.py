@@ -299,7 +299,9 @@ class YouTubeAPI:
         try:
             ydl_opts = {"quiet": True, "extract_flat": True, "noplaylist": True, "cookiefile": "cookies.txt"}
             def extract():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(link, download=False)
+                # 🟢 AUTO-CORRECT SEARCH FIX: If not a URL, force YouTube search
+                query = link if link.startswith("http") else f"ytsearch1:{link}"
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(query, download=False)
             info = await asyncio.get_event_loop().run_in_executor(None, extract)
             
             if info:
@@ -365,7 +367,9 @@ class YouTubeAPI:
         try:
             ydl_opts = {"quiet": True, "extract_flat": True, "noplaylist": True, "cookiefile": "cookies.txt"}
             def extract():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(link, download=False)
+                # 🟢 AUTO-CORRECT SEARCH FIX: If not a URL, force YouTube search
+                query = link if link.startswith("http") else f"ytsearch1:{link}"
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(query, download=False)
             info = await asyncio.get_event_loop().run_in_executor(None, extract)
             
             if info:
