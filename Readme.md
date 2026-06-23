@@ -1,6 +1,6 @@
 <!-- ISTKHAR MUSIC ANIMATED BANNER -->
   <p align="center">
-    <img src="https://raw.githubusercontent.com/TEAM-ISTKHAR/ISTKHAR_MUSIC/main/banner.svg" alt="ISTKHAR Music Banner" width="900"/>
+    <img src="https://raw.githubusercontent.com/TEAM-ISTKHAR/ISTKHAR_MUSIC/main/banner.svg" alt="ISTKHAR Music " width="900"/>
   </p>
 
   <!-- ANIMATED FOOTER LINE -->
@@ -96,7 +96,7 @@
     <table>
       <tr>
         <td align="center">
-          <a href="https://dashboard.heroku.com/new?template=https://github.com/TEAM-ISTKHAR/ISTKHAR_MUSIC">
+          <a href="https://dashboard.heroku.com/new?template=https://github.com/istkharroohi78/alu">
             <img src="https://img.shields.io/badge/🚀_HEROKU_DEPLOY-430098?style=for-the-badge&logo=heroku&logoColor=white&labelColor=000000" width="250"/>
           </a>
           <br><sub>One-Click Cloud Deployment</sub>
