@@ -40,15 +40,11 @@ _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
 
 # ============ API CONFIGURATION ============
-SHRUTI_API_KEY = "ShrutiBotsL0zQEKsazSrYS2LWsIQW"
-
-# API 1: Primary Shruti API (Direct Download)
-PRIMARY_API_URL = "https://api.shrutibots.site"
-# Endpoint: /download?url={video_id}&type=audio&api_key={KEY}
-# Response: Direct file download
+SHRUTI_API_URL = "https://api.shrutibots.site"
+SHRUTI_API_KEY = "ShrutiBotsC0WH1GowF2HkGoKv4F3y"
 
 # API 2: Legacy/Fallback API (Token Based)
-FALLBACK_API_URL = ""
+FALLBACK_API_URL = "itsmesid"
 # Endpoint 1: /download?url={video_id}&type=audio -> returns {"download_token": "xxx"}
 # Endpoint 2: /stream/{video_id}?type=audio with header X-Download-Token
 
