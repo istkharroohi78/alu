@@ -45,4 +45,4 @@ unidecode
 wget
 youtube-search
 youtube-search-python
-yt-dlp==2025.10.22 
+yt-dlp
