@@ -40,21 +40,53 @@ _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
 
 # ============ API CONFIGURATION ============
+
+# Shruti
+SHRUTI_API_URL = "https://api.shrutibots.site"
 SHRUTI_API_KEY = "ShrutiBotsC0WH1GowF2HkGoKv4F3y"
 
-# API 1: Primary Shruti API (Direct Download)
-PRIMARY_API_URL = "https://api.shrutibots.site"
-# Endpoint: /download?url={video_id}&type=audio&api_key={KEY}
-# Response: Direct file download
+# Ritesh
+API_URL = os.environ.get(
+    "API_URL",
+    "https://web.riteshyt.in"
+)
+API_KEY = os.environ.get(
+    "API_KEY",
+    "ritesh_free_6361d74f047ed86015df3fa8"
+)
 
-# API 2: Legacy/Fallback API (Token Based)
-FALLBACK_API_URL = "https://youtubenewapi.skybotsdeveloper.workers.de"
-# Endpoint 1: /download?url={video_id}&type=audio -> returns {"download_token": "xxx"}
-# Endpoint 2: /stream/{video_id}?type=audio with header X-Download-Token
+# Xbit
+YTPROXY_URL = os.getenv(
+    "YTPROXY_URL",
+    "https://tgapi.xbitcode.com"
+)
+YT_API_KEY = os.getenv(
+    "YT_API_KEY",
+    "xbit_kp3GFnAvdnFVDV3L6xACy-jbVBE5q5Cd"
+)
 
-# API URLs loaded status
-PRIMARY_API_LOADED = False
-FALLBACK_API_LOADED = False
+# Worker
+WORKER_FALLBACK_API_URL = os.getenv(
+    "WORKER_FALLBACK_API_URL",
+    "https://youtubenewapi.skybotsdeveloper.workers.dev"
+)
+WORKER_FALLBACK_API_KEY = os.getenv(
+    "WORKER_FALLBACK_API_KEY",
+    "itsmesid"
+)
+
+# Inflex
+INFLEX_API_URL = os.getenv(
+    "INFLEX_API_URL",
+    "https://teaminflex.xyz"
+)
+INFLEX_API_KEY = os.getenv(
+    "INFLEX_API_KEY",
+    "INFLEX40920628D"
+)
+
+PRIMARY_API_URL = SHRUTI_API_URL
+FALLBACK_API_URL = WORKER_FALLBACK_API_URL
 
 # ============ RATE LIMITING (async â€” does NOT block the event loop) ============
 _request_timestamps = []
