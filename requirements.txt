@@ -43,5 +43,6 @@ telegraph
 tgcrypto
 unidecode
 wget
-yt-dlp==2025.10.22
-youtubesearchpython
+youtube-search
+youtube-search-python
+yt-dlp>=2024.03.10  
