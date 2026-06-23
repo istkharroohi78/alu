@@ -7,7 +7,7 @@
 
 import asyncio
 import os
-import random  # ✅ ADDED FOR AUTOPLAY FEATURE
+import random
 from datetime import datetime, timedelta
 from typing import Union
 
@@ -270,10 +270,7 @@ class Call:
             await auto_clean(popped)
             
             if not check:
-                await _clear_(chat_id)
                 autoplay_started = False
-                
-                # 🟢 SMART AUTOPLAY LOGIC IMPLEMENTED HERE
                 if popped:
                     try:
                         if await is_autoplay_on(chat_id):
@@ -347,8 +344,9 @@ class Call:
                                 if popped.get("streamtype", "audio") == "video":
                                     await add_active_video_chat(chat_id)
                                 
+                                # 🟢 INFINITE LOOP FIX: Updating reference instead of calling recursively!
+                                check = db[chat_id]
                                 autoplay_started = True
-                                return await self.play(client, chat_id) # 🟢 Plays the Autoplay song automatically!
                             else:
                                 LOGGER(__name__).warning(f"⚠️ YouTube Autoplay returned empty choices for chat: {chat_id}. Forcing cleanup.")
                     except Exception as e:
@@ -356,6 +354,7 @@ class Call:
                         autoplay_started = False
 
                 if not autoplay_started:
+                    await _clear_(chat_id)
                     if chat_id in self.active_calls:
                         try:
                             await client.leave_call(chat_id)
@@ -365,7 +364,7 @@ class Call:
                             pass
                         finally:
                             self.active_calls.discard(chat_id)
-                return
+                    return
         except Exception as e:
             try:
                 await _clear_(chat_id)
