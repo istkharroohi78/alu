@@ -16,12 +16,12 @@ DOWNLOAD_DIR = "downloads"
 LOGGER = logging.getLogger(__name__)
 
 # --- API 1: Shruti ---
-API_URL = os.environ.get("SHRUTI_API_URL" = "https://api.shrutibots.site")
-API_KEY = os.environ.get("SHRUTI_API_KEY" = "ShrutiBotsC0WH1GowF2HkGoKv4F3y")
+API_URL = os.getenv("SHRUTI_API_URL", "https://api.shrutibots.site")
+API_KEY = os.getenv("SHRUTI_API_KEY", "ShrutiBotsC0WH1GowF2HkGoKv4F3y")
 
 # --- API 2: Xbit ---
 YTPROXY_URL = os.getenv("YTPROXY_URL", "https://tgapi.xbitcode.com")
-YT_API_KEY = os.getenv("YT_API_KEY" , "xbit_kp3GFnAvdnFVDV3L6xACy-jbVBE5q5Cd")
+YT_API_KEY = os.getenv("YT_API_KEY", "xbit_kp3GFnAvdnFVDV3L6xACy-jbVBE5q5Cd")
 
 # --- API 3: Worker ---
 WORKER_FALLBACK_API_URL = os.getenv("WORKER_FALLBACK_API_URL", "https://youtubenewapi.skybotsdeveloper.workers.dev")
