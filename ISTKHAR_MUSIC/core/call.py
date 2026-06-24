@@ -270,101 +270,37 @@ class Call:
             await auto_clean(popped)
             
             if not check:
-                autoplay_started = False
                 if popped:
                     try:
                         if await is_autoplay_on(chat_id):
-                            LOGGER(__name__).info(f"🔄 Autoplay active searching next song for {chat_id}")
-                            raw_title = popped.get("title", "Unknown Title")
-                            title_lower = str(raw_title).lower()
-                            last_vidid = str(popped.get("vidid", ""))
+                            LOGGER(__name__).info(f"🔄 Triggering smart autoplay for {chat_id}")
+                            from ISTKHAR_MUSIC.utils.autoplay import auto_play_next
+                            is_video = popped.get("streamtype", "audio") == "video"
+                            original_chat_id = popped.get("chat_id", chat_id)
                             
-                            keywords_map = {
-                                "Punjabi": ["sidhu moose wala", "karan aujla", "diljit dosanjh", "ap dhillon", "amrit maan", "shubh", "kaka", "hardy sandhu", "guru randhawa", "b praak", "jass manak", "harrdy sandhu", "parmish verma", "punjabi"],
-                                "Bhojpuri": ["pawan singh", "khesari lal yadav", "shilpi raj", "antra singh", "pramod premi", "ritesh pandey", "arvind akela kallu", "gunjan singh", "samar singh", "neha raj", "bhojpuri"],
-                                "Haryanvi": ["sapna choudhary", "renuka panwar", "gulzaar chhaniwala", "sumit goswami", "raju punjabi", "amit saini rohtakiya", "pranjal dahiya", "md kd", "haryanvi"],
-                                "Hindi": ["arijit singh", "neha kakkar", "shreya ghoshal", "jubin nautiyal", "atif aslam", "darshan raval", "armaan malik", "sonu nigam", "yo yo honey singh", "badshah", "sunidhi chauhan", "udit narayan", "kumar sanu", "alka yagnik", "sachet tandon", "parampara", "hindi"],
-                                "Tamil": ["anirudh", "ar rahman", "rahman", "yuvan shankar raja", "sid sriram", "harris jayaraj", "vijay prakash", "s.p. balasubrahmanyam", "tamil", "kollywood"],
-                                "Telugu": ["devi sri prasad", "dsp", "thaman", "sid sriram", "anurag kulkarni", "mangli", "geetha madhuri", "allu", "ramarao", "telugu", "tollywood"],
-                                "English": ["taylor swift", "justin bieber", "ed sheeran", "ariana grande", "the weeknd", "drake", "eminem", "billie eilish", "dua lipa", "bruno mars", "post malone", "english", "pop song"]
-                            }
-                            
-                            detected_lang = "Hindi"
-                            detected_artist = None
-                            
-                            for lang, kws in keywords_map.items():
-                                for kw in kws:
-                                    if kw in title_lower:
-                                        detected_lang = lang
-                                        if kw not in ["hindi", "punjabi", "bhojpuri", "haryanvi", "tamil", "telugu", "english", "kollywood", "tollywood", "pop song"]:
-                                            detected_artist = kw
-                                        break
-                                if detected_artist or detected_lang != "Hindi":
-                                    break
-                                    
-                            if detected_artist:
-                                search_query = random.choice([
-                                    f"{detected_artist} latest hit single official video",
-                                    f"{detected_artist} trending track lyrical",
-                                    f"{detected_artist} superhit popular track audio",
-                                    f"{detected_artist} best song official"
-                                ])
-                            else:
-                                lang_pools = {
-                                    "Hindi": ["hindi single track official video", "bollywood latest lyrical hit song", "trending hindi pop music"],
-                                    "Punjabi": ["latest punjabi single official video", "punjabi trending track lyrical", "punjabi pop hit track"],
-                                    "Bhojpuri": ["bhojpuri latest single video song", "bhojpuri trending song official", "bhojpuri hit dj remix"],
-                                    "Haryanvi": ["haryanvi single track official", "latest haryanvi video song", "haryanvi dj hit pop"],
-                                    "Tamil": ["tamil latest single official video", "kollywood trending song lyrical", "tamil hit movie track"],
-                                    "Telugu": ["telugu tollywood latest single song", "telugu lyrical video official", "telugu trending track"],
-                                    "English": ["english pop single official music video", "trending english lyrical song", "global hit english track"]
-                                }
-                                search_query = random.choice(lang_pools[detected_lang])
-                                
-                            recommendation = await YouTube.autoplay(last_vidid=last_vidid, title=search_query, max_duration=900)
-                            
-                            if recommendation:
-                                db[chat_id] = []
-                                db[chat_id].append({
-                                    "title": str(recommendation.get("title", "Unknown Title")),
-                                    "dur": recommendation.get("duration_min", "0:00"),
-                                    "streamtype": popped.get("streamtype", "audio") if popped else "audio",
-                                    "by": "Autoplay 🟢",
-                                    "user_id": 0,
-                                    "chat_id": chat_id,
-                                    "file": f"vid_{recommendation.get('vidid', '')}",
-                                    "vidid": str(recommendation.get("vidid", "")),
-                                    "seconds": recommendation.get("duration_sec", 0),
-                                    "old_dur": recommendation.get("duration_min", "0:00"),
-                                    "old_second": 0,
-                                    "played": 0,
-                                    "client": client
-                                })
-                                await add_active_chat(chat_id)
-                                if popped.get("streamtype", "audio") == "video":
-                                    await add_active_video_chat(chat_id)
-                                
-                                # 🟢 INFINITE LOOP FIX: Updating reference instead of calling recursively!
-                                check = db[chat_id]
-                                autoplay_started = True
-                            else:
-                                LOGGER(__name__).warning(f"⚠️ YouTube Autoplay returned empty choices for chat: {chat_id}. Forcing cleanup.")
+                            success = await auto_play_next(
+                                chat_id, 
+                                original_chat_id, 
+                                popped.get("title", ""), 
+                                popped.get("vidid", ""), 
+                                video=is_video
+                            )
+                            if success:
+                                return
                     except Exception as e:
-                        LOGGER(__name__).error(f"❌ Critical Autoplay exception processing track query: {e}")
-                        autoplay_started = False
+                        LOGGER(__name__).error(f"Autoplay trigger failed: {e}")
 
-                if not autoplay_started:
-                    await _clear_(chat_id)
-                    if chat_id in self.active_calls:
-                        try:
-                            await client.leave_call(chat_id)
-                        except NoActiveGroupCall:
-                            pass
-                        except Exception:
-                            pass
-                        finally:
-                            self.active_calls.discard(chat_id)
-                    return
+                # If autoplay is off or fails, leave the call cleanly
+                await _clear_(chat_id)
+                if chat_id in self.active_calls:
+                    try:
+                        await client.leave_call(chat_id)
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_calls.discard(chat_id)
+                return
+
         except Exception as e:
             try:
                 await _clear_(chat_id)
@@ -428,19 +364,23 @@ class Call:
                         videoid=True,
                         video=True if str(streamtype) == "video" else False,
                     )
-                except:
-                    return await mystic.edit_text(
-                        _["call_6"], disable_web_page_preview=True
-                    )
+                except Exception:
+                    file_path = None
 
-                # --- 🛑 THE FIX 🛑 ---
+                # --- 🛑 FIX: KICK ASSISTANT OUT IF DOWNLOAD FAILS ---
                 if not file_path:
                     await _clear_(chat_id)
+                    try:
+                        await client.leave_call(chat_id)
+                    except Exception:
+                        pass
+                    if chat_id in self.active_calls:
+                        self.active_calls.discard(chat_id)
                     return await mystic.edit_text(
-                        "❌ **Error:** Failed to extract media. The video might be age-restricted, blocked, or unavailable.", 
+                        "❌ **Error:** Failed to extract media. The video might be age-restricted or blocked.\n\n➔ **Assistant Left Voice Chat.**", 
                         disable_web_page_preview=True
                     )
-                # ---------------------
+                # ----------------------------------------------------
 
                 stream = dynamic_media_stream(path=file_path, video=video)
                 try:
