@@ -45,4 +45,4 @@ unidecode
 wget
 youtube-search
 youtube-search-python
-yt-dlp
+yt-dlp>=2026.06.01
