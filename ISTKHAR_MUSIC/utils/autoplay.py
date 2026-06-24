@@ -1,19 +1,16 @@
 # ═══════════════════════════════════════════════════════════
 #        😎𝐈sᴛᴋʜᴀʀ 𝐌ᴜsɪᴄ  😎
-#   GitHub : github.com/TEAM-ISTKHAR/ISTKHAR_MUSIC
-#   Developer : @IAMIstkhar | Telegram
-#   Module : Autoplay Feature Handler
+#   Module : Autoplay Feature Handler (Updated)
 # ═══════════════════════════════════════════════════════════
 
 from ISTKHAR_MUSIC.core.mongo import mongodb
+from ISTKHAR_MUSIC.core.call import ISTKHAR
 
 _autoplay_db = mongodb.autoplay
-
 
 async def is_autoplay_on(chat_id: int) -> bool:
     data = await _autoplay_db.find_one({"chat_id": chat_id})
     return bool(data.get("status", False)) if data else False
-
 
 async def toggle_autoplay(chat_id: int) -> bool:
     data = await _autoplay_db.find_one({"chat_id": chat_id})
@@ -27,7 +24,12 @@ async def toggle_autoplay(chat_id: int) -> bool:
     )
     return new_status
 
-# ═══════════════════════════════════════════════════════════
-#        😎𝐈sᴛᴋʜᴀʀ 𝐌ᴜsɪᴄ  😎
-#   github.com/TEAM-ISTKHAR/ISTKHAR_MUSIC
-# ═══════════════════════════════════════════════════════════
+
+async def auto_play_next(chat_id, user_id, last_title, last_vidid, is_video):
+    try:
+        
+        await ISTKHAR.skip_stream(chat_id, user_id, last_title, last_vidid, is_video)
+        return True
+    except Exception:
+        return False
+        
