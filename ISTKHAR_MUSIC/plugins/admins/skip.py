@@ -1,25 +1,20 @@
 # ═══════════════════════════════════════════════════════════
 #        😎𝐈sᴛᴋʜᴀʀ 𝐌ᴜsɪᴄ  😎
-#   GitHub : github.com/TEAM-ISTKHAR/ISTKHAR_MUSIC
-#   Developer : @IAMIstkhar | Telegram
-#   Module : Skip, Seek & Stream Control
+#   Module : Skip, Seek & Stream Control (Fixed)
 # ═══════════════════════════════════════════════════════════
 
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardMarkup, Message
-
+from pyrogram.types import Message
 import config
-from ISTKHAR_MUSIC import YouTube, app
+from ISTKHAR_MUSIC import app
 from ISTKHAR_MUSIC.core.call import ISTKHAR
 from ISTKHAR_MUSIC.misc import db
 from ISTKHAR_MUSIC.utils.database import get_loop, group_assistant
 from ISTKHAR_MUSIC.utils.autoplay_utils import is_autoplay_on
 from ISTKHAR_MUSIC.utils.decorators import AdminRightsCheck
-from ISTKHAR_MUSIC.utils.inline import close_markup, stream_markup
+from ISTKHAR_MUSIC.utils.inline import close_markup
 from ISTKHAR_MUSIC.utils.stream.autoclear import auto_clean
-from ISTKHAR_MUSIC.utils.thumbnails import get_thumb
 from config import BANNED_USERS
-
 
 @app.on_message(
     filters.command(["skip", "cskip", "next", "cnext"], prefixes=["/", "!"]) & filters.group & ~BANNED_USERS
@@ -35,7 +30,6 @@ async def skip(cli, message: Message, _, chat_id):
         return await message.reply_text(_["admin_8"])
 
     popped = None
-
     if len(message.command) >= 2:
         state = message.text.split(None, 1)[1].strip()
         if state.isnumeric():
@@ -47,46 +41,34 @@ async def skip(cli, message: Message, _, chat_id):
                     for x in range(state):
                         try:
                             popped = check.pop(0)
-                            if popped:
-                                await auto_clean(popped)
-                        except:
-                            return await message.reply_text(_["admin_12"])
-                else:
-                    return await message.reply_text(_["admin_11"].format(count))
-            else:
-                return await message.reply_text(_["admin_10"])
-        else:
-            return await message.reply_text(_["admin_9"])
+                            if popped: await auto_clean(popped)
+                        except: return await message.reply_text(_["admin_12"])
+                else: return await message.reply_text(_["admin_11"].format(count))
+            else: return await message.reply_text(_["admin_10"])
+        else: return await message.reply_text(_["admin_9"])
     else:
         try:
             popped = check.pop(0)
-            if popped:
-                await auto_clean(popped)
-        except:
-            pass
+            if popped: await auto_clean(popped)
+        except: pass
 
-    # --- 🛑 AUTOPLAY & EMPTY QUEUE NOTIFICATIONS ---
+    # --- AUTOPLAY LOGIC FIXED ---
     if not check:
         if await is_autoplay_on(chat_id):
             await message.reply_text("» ǫᴜᴇᴜᴇ ᴇᴍᴘᴛʏ ➔ **ᴀᴜᴛᴏᴘʟᴀʏ** ᴏɴ, ꜰᴇᴛᴄʜɪɴɢ ɴᴇxᴛ ᴛʀᴀᴄᴋ...")
-            from ISTKHAR_MUSIC.utils.autoplay import auto_play_next
-            last_title = popped.get("title", "") if popped else ""
-            last_vidid = popped.get("vidid", "") if popped else ""
-            is_video = popped.get("streamtype", "audio") == "video" if popped else False
-            
-            success = await auto_play_next(chat_id, message.chat.id, last_title, last_vidid, is_video)
-            if success:
+            try:
+                # Directly calling skip_stream from core.call
+                assistant = await group_assistant(ISTKHAR, chat_id)
+                await ISTKHAR.skip_stream(chat_id, assistant, popped)
                 return
-            else:
+            except Exception:
                 await ISTKHAR.stop_stream(chat_id)
                 return await message.reply_text("» ❌ ᴀᴜᴛᴏᴘʟᴀʏ ꜰᴀɪʟᴇᴅ. ʟᴇᴀᴠɪɴɢ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ...")
         else:
             await ISTKHAR.stop_stream(chat_id)
             return await message.reply_text("» ǫᴜᴇᴜᴇ ᴇᴍᴘᴛʏ ➔ ʟᴇᴀᴠɪɴɢ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ...")
-    # -----------------------------------------------
 
-    if popped:
-        check.insert(0, popped)
+    if popped: check.insert(0, popped)
 
     await message.reply_text(
         text=_["admin_6"].format(message.from_user.mention, message.chat.title),
@@ -98,8 +80,4 @@ async def skip(cli, message: Message, _, chat_id):
         await ISTKHAR.play(assistant, chat_id)
     except Exception:
         pass
-
-# ═══════════════════════════════════════════════════════════
-#        😎𝐈sᴛᴋʜᴀʀ 𝐌ᴜsɪᴄ  😎
-#    github.com/TEAM-ISTKHAR/ISTKHAR_MUSIC
-# ═══════════════════════════════════════════════════════════
+        
