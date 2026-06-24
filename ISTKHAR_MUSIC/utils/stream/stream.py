@@ -90,16 +90,20 @@ async def stream(
                     db[chat_id] = []
                 # Start thumbnail download in parallel with song download
                 thumb_task = asyncio.create_task(get_thumb(vidid))
+                
+                # --- 🛑 SAFETY FIX: PLAYLIST DOWNLOAD CHECK ---
                 try:
                     file_path, direct = await YouTube.download(
                         vidid, mystic, video=is_video, videoid=vidid
                     )
-                except Exception:
+                except Exception as e:
                     thumb_task.cancel()
-                    raise AssistantErr(_["play_14"])
+                    raise AssistantErr(f"❖ 𝐅ᴀɪʟᴇᴅ ᴛᴏ 𝐃ᴏᴡɴʟᴏᴀᴅ 𝐓ʀᴀᴄᴋ ❖\n\n❖ 𝐑ᴇᴀsᴏɴ: {str(e)[:45]} ❖")
+                
                 if not file_path:
                     thumb_task.cancel()
-                    raise AssistantErr(_["play_14"])
+                    raise AssistantErr("❖ 𝐅ᴀɪʟᴇᴅ ᴛᴏ 𝐃ᴏᴡɴʟᴏᴀᴅ 𝐓ʀᴀᴄᴋ ❖\n\n❖ 𝐑ᴇᴀsᴏɴ: Video Age-Restricted or Blocked ❖")
+                # ---------------------------------------------
 
                 await ISTKHAR.join_call(
                     chat_id,
@@ -174,16 +178,19 @@ async def stream(
         # Start thumbnail download in parallel with song download
         thumb_task = asyncio.create_task(get_thumb(vidid))
 
+        # --- 🛑 SAFETY FIX: YOUTUBE DOWNLOAD CHECK ---
         try:
             file_path, direct = await YouTube.download(
                 vidid, mystic, video=is_video, videoid=vidid
             )
-        except Exception:
+        except Exception as e:
             thumb_task.cancel()
-            raise AssistantErr(_["play_14"])
+            raise AssistantErr(f"❖ 𝐅ᴀɪʟᴇᴅ ᴛᴏ 𝐃ᴏᴡɴʟᴏᴀᴅ 𝐓ʀᴀᴄᴋ ❖\n\n❖ 𝐑ᴇᴀsᴏɴ: {str(e)[:45]} ❖")
+            
         if not file_path:
             thumb_task.cancel()
-            raise AssistantErr(_["play_14"])
+            raise AssistantErr("❖ 𝐅ᴀɪʟᴇᴅ ᴛᴏ 𝐃ᴏᴡɴʟᴏᴀᴅ 𝐓ʀᴀᴄᴋ ❖\n\n❖ 𝐑ᴇᴀsᴏɴ: Video Age-Restricted or Blocked ❖")
+        # ---------------------------------------------
 
         if await is_active_chat(chat_id):
             thumb_task.cancel()
