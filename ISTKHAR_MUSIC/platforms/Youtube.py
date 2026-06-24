@@ -108,7 +108,9 @@ async def _exec_proc(*args: str) -> Tuple[bytes, bytes]:
 # ============ ⚡ CONCURRENT API RACING ============
 async def single_api_download(api_name: str, req_url: str, params: dict, final_path: str) -> str:
     temp_path = f"{final_path}_{api_name}.tmp"
-    strict_timeout = aiohttp.ClientTimeout(total=120, connect=3, sock_read=5)
+    
+    # 🟢 TIMEOUT FIX: Connect aur sock_read time badha diya hai taaki APIs beech mein fail na hon
+    strict_timeout = aiohttp.ClientTimeout(total=120, connect=7, sock_read=20)
     
     try:
         session = await _get_yt_session()
@@ -123,7 +125,8 @@ async def single_api_download(api_name: str, req_url: str, params: dict, final_p
                         os.rename(temp_path, final_path)
                         LOGGER("ISTKHAR_MUSIC.platforms.Youtube").info(f"⚡ FASTEST API WON: {api_name} downloaded the file!")
                         return final_path
-    except Exception:
+    except Exception as e:
+        LOGGER("ISTKHAR_MUSIC.platforms.Youtube").warning(f"⚠️ API {api_name} failed: {e}")
         pass
     finally:
         if os.path.exists(temp_path):
