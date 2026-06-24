@@ -1,8 +1,3 @@
-# ═══════════════════════════════════════════════════════════
-#        😎𝐈sᴛᴋʜᴀʀ 𝐌ᴜsɪᴄ  😎
-#   Module : Autoplay Feature Handler (Updated)
-# ═══════════════════════════════════════════════════════════
-
 from ISTKHAR_MUSIC.core.mongo import mongodb
 from ISTKHAR_MUSIC.core.call import ISTKHAR
 
@@ -24,12 +19,11 @@ async def toggle_autoplay(chat_id: int) -> bool:
     )
     return new_status
 
-
 async def auto_play_next(chat_id, user_id, last_title, last_vidid, is_video):
     try:
-        
         await ISTKHAR.skip_stream(chat_id, user_id, last_title, last_vidid, is_video)
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Error in auto_play_next: {e}")
         return False
         
