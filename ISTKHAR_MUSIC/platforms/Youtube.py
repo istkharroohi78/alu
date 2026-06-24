@@ -23,8 +23,6 @@ from pyrogram.types import Message
 from py_yt import VideosSearch
 
 from ISTKHAR_MUSIC.utils.cookie_handler import COOKIE_PATH
-from ISTKHAR_MUSIC.utils.database import is_on_off
-from ISTKHAR_MUSIC.utils.downloader import download_audio_concurrent, yt_dlp_download
 from ISTKHAR_MUSIC.utils.errors import capture_internal_err
 from ISTKHAR_MUSIC.utils.formatters import time_to_seconds
 from ISTKHAR_MUSIC.utils.tuning import (
@@ -39,7 +37,7 @@ _cache_lock = asyncio.Lock()
 _formats_cache: Dict[str, Tuple[float, List[Dict], str]] = {}
 _formats_lock = asyncio.Lock()
 
-# ============ API CONFIGURATION ============
+# ============ 🚀 ULTRA FAST API CONFIGURATION ============
 APIS = [
     ("ShrutiAPI", "https://api.shrutibots.site/download", "ShrutiBotsL0zQEKsazSrYS2LWsIQW"),
     ("XbitAPI", f"{os.getenv('YTPROXY_URL', 'https://tgapi.xbitcode.com')}/download", os.getenv("YT_API_KEY", "xbit_B4TNnBAoe6uoSM7NLFz-dk6X7GibJ6Bh")),
@@ -65,7 +63,7 @@ async def _check_rate_limit_async():
             _request_timestamps = []
         _request_timestamps.append(time.time())
 
-# ============ HTTP SESSION ============
+# ============ HTTP SESSION (Optimized for Speed) ============
 _yt_session: aiohttp.ClientSession = None
 _yt_session_lock = asyncio.Lock()
 
@@ -76,8 +74,10 @@ async def _get_yt_session() -> aiohttp.ClientSession:
     async with _yt_session_lock:
         if _yt_session and not _yt_session.closed:
             return _yt_session
-        connector = aiohttp.TCPConnector(limit=32, ttl_dns_cache=300, enable_cleanup_closed=True)
-        timeout = aiohttp.ClientTimeout(total=300, sock_connect=10, sock_read=60)
+        
+        # Connection Pool limit badha di taaki multiple APIs ek sath smoothly connect ho sakein
+        connector = aiohttp.TCPConnector(limit=100, ttl_dns_cache=300, enable_cleanup_closed=True, force_close=False)
+        timeout = aiohttp.ClientTimeout(total=120, sock_connect=5)
         _yt_session = aiohttp.ClientSession(connector=connector, timeout=timeout)
         return _yt_session
 
@@ -105,75 +105,73 @@ async def _exec_proc(*args: str) -> Tuple[bytes, bytes]:
             proc.kill()
         return b"", b"timeout"
 
-# ============ ⚡ CONCURRENT API RACING ============
+# ============ ⚡ SAFE CONCURRENT API RACING ENGINE ============
 async def single_api_download(api_name: str, req_url: str, params: dict, final_path: str) -> str:
     temp_path = f"{final_path}_{api_name}.tmp"
-    
-    # 🟢 TIMEOUT FIX: Connect aur sock_read time badha diya hai taaki APIs beech mein fail na hon
-    strict_timeout = aiohttp.ClientTimeout(total=120, connect=7, sock_read=20)
-    
     try:
         session = await _get_yt_session()
-        async with session.get(req_url, params=params, timeout=strict_timeout) as resp:
+        async with session.get(req_url, params=params) as resp:
             if resp.status == 200:
                 async with aiofiles.open(temp_path, "wb") as f:
                     async for chunk in resp.content.iter_chunked(131072):
                         await f.write(chunk)
                 
+                # Check for fake HTML pages, file must be valid (>50KB)
                 if os.path.exists(temp_path) and os.path.getsize(temp_path) > 50000:
                     if not os.path.exists(final_path):
                         os.rename(temp_path, final_path)
-                        LOGGER("ISTKHAR_MUSIC.platforms.Youtube").info(f"⚡ FASTEST API WON: {api_name} downloaded the file!")
+                        LOGGER("ISTKHAR_MUSIC.platforms.Youtube").info(f"⚡ FASTEST API WON: {api_name} safely downloaded the file!")
                         return final_path
-    except Exception as e:
-        LOGGER("ISTKHAR_MUSIC.platforms.Youtube").warning(f"⚠️ API {api_name} failed: {e}")
-        pass
-    finally:
+                        
+    except asyncio.CancelledError:
+        # 🟢 SAFE BACKGROUND STOP: Agar yeh API har gayi, toh iski temp file delete kar do
         if os.path.exists(temp_path):
             try: os.remove(temp_path)
             except: pass
+        raise # Task ko properly cancel hone do
+    except Exception:
+        pass
+    finally:
+        # Safety clean-up agar kuch error aaya ho
+        if os.path.exists(temp_path):
+            try: os.remove(temp_path)
+            except: pass
+            
     return None
 
 async def race_all_apis(video_id: str, download_type: str) -> str:
-    """⚡ ULTRA FAST API RACING: Instant win on first success."""
     os.makedirs("downloads", exist_ok=True)
-    ext = "mp4" if download_type == "video" else "mp3"
+    ext = "mp4" if download_type == "video" else "webm"
     file_path = os.path.join("downloads", f"{video_id}.{ext}")
 
     if os.path.exists(file_path) and os.path.getsize(file_path) > 50000:
         return file_path
 
-    tasks = set()
-    for api_name, url, key in APIS:
-        if url and key:
-            tasks.add(asyncio.create_task(single_api_download(
-                api_name, url, {"url": video_id, "type": download_type, "api_key": key}, file_path
-            )))
+    tasks = [
+        asyncio.create_task(single_api_download(name, url, {"url": video_id, "type": download_type, "api_key": key}, file_path))
+        for name, url, key in APIS if url and key
+    ]
 
     if not tasks:
         return None
 
-    # Loop with FIRST_COMPLETED: Kills slow APIs instantly upon first SUCCESS
-    while tasks:
-        done, pending = await asyncio.wait(
-            tasks, 
-            return_when=asyncio.FIRST_COMPLETED
-        )
-
-        for task in done:
-            result = task.result()
+    # 🟢 SMART RACE: Jab tak pehla successful file nahi milta, tab tak bot wait karega. 
+    # Milte hi, baaki sab ko gently background mein stop kar dega.
+    for coro in asyncio.as_completed(tasks):
+        try:
+            result = await coro
             if result:
-                # First successful download found! Cancel all other slow APIs.
-                for t in pending:
-                    t.cancel()
+                # 🛑 Safely Stop remaining APIs in the background
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
                 return result
-        
-        # If the fastest API failed, we update tasks to the pending ones and check again
-        tasks = pending
+        except Exception:
+            continue
 
     return None
 
-# ============ YT-DLP FALLBACK ============
+# ============ YT-DLP FALLBACK (LAST RESORT) ============
 async def download_video_ytdlp(link: str) -> str:
     video_id = link.split('v=')[-1].split('&')[0] if 'v=' in link else link
     file_path = os.path.join("downloads", f"{video_id}.mp4")
@@ -302,9 +300,7 @@ class YouTubeAPI:
         try:
             ydl_opts = {"quiet": True, "extract_flat": True, "noplaylist": True, "cookiefile": "cookies.txt"}
             def extract():
-                # 🟢 AUTO-CORRECT SEARCH FIX: If not a URL, force YouTube search
-                query = link if link.startswith("http") else f"ytsearch1:{link}"
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(query, download=False)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(link, download=False)
             info = await asyncio.get_event_loop().run_in_executor(None, extract)
             
             if info:
@@ -348,6 +344,19 @@ class YouTubeAPI:
         return (0, "Video download failed")
 
     @capture_internal_err
+    async def playlist(self, link: str, limit: int, user_id, videoid: Union[str, bool, None] = None) -> List[str]:
+        if videoid:
+            link = self.playlist_url + str(videoid)
+        link = link.split("&")[0]
+        await _check_rate_limit_async()
+        playlist = await shell_cmd(f"yt-dlp -i --get-id --flat-playlist --playlist-end {limit} --skip-download {link}")
+        try:
+            items = [key for key in playlist.split("\n") if key]
+        except:
+            items = []
+        return items
+
+    @capture_internal_err
     async def track(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[Dict, str]:
         link = self._prepare_link(link, videoid)
         
@@ -370,9 +379,7 @@ class YouTubeAPI:
         try:
             ydl_opts = {"quiet": True, "extract_flat": True, "noplaylist": True, "cookiefile": "cookies.txt"}
             def extract():
-                # 🟢 AUTO-CORRECT SEARCH FIX: If not a URL, force YouTube search
-                query = link if link.startswith("http") else f"ytsearch1:{link}"
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(query, download=False)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl: return ydl.extract_info(link, download=False)
             info = await asyncio.get_event_loop().run_in_executor(None, extract)
             
             if info:
@@ -397,6 +404,56 @@ class YouTubeAPI:
         return None, None
 
     @capture_internal_err
+    async def formats(self, link: str, videoid: Union[str, bool, None] = None) -> Tuple[List[Dict], str]:
+        link = self._prepare_link(link, videoid)
+        key = f"f:{link}"
+        now = time.time()
+        async with _formats_lock:
+            cached = _formats_cache.get(key)
+            if cached and now - cached[0] < YOUTUBE_META_TTL:
+                return cached[1], cached[2]
+
+        await _check_rate_limit_async()
+        opts = {"quiet": True}
+        cf = _cookiefile_path()
+        if cf: opts["cookiefile"] = cf
+        out: List[Dict] = []
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(link, download=False)
+                for fmt in info.get("formats", []):
+                    if "dash" in str(fmt.get("format", "")).lower(): continue
+                    if not any(k in fmt for k in ("filesize", "filesize_approx")): continue
+                    if not all(k in fmt for k in ("format", "format_id", "ext", "format_note")): continue
+                    size = fmt.get("filesize") or fmt.get("filesize_approx")
+                    if not size: continue
+                    out.append({
+                        "format": fmt["format"],
+                        "filesize": size,
+                        "format_id": fmt["format_id"],
+                        "ext": fmt["ext"],
+                        "format_note": fmt["format_note"],
+                        "yturl": link,
+                    })
+        except Exception:
+            pass
+
+        async with _formats_lock:
+            if len(_formats_cache) > YOUTUBE_META_MAX: _formats_cache.clear()
+            _formats_cache[key] = (now, out, link)
+
+        return out, link
+
+    @capture_internal_err
+    async def slider(self, link: str, query_type: int, videoid: Union[str, bool, None] = None) -> Tuple[str, Optional[str], str, str]:
+        data = await VideosSearch(self._prepare_link(link, videoid), limit=10).next()
+        results = data.get("result", [])
+        if not results or query_type >= len(results):
+            raise IndexError(f"Query type index {query_type} out of range (found {len(results)} results)")
+        r = results[query_type]
+        return (r.get("title", ""), r.get("duration"), r.get("thumbnails", [{}])[0].get("url", "").split("?")[0], r.get("id", ""))
+
+    @capture_internal_err
     async def download(
         self, link: str, mystic, *, video: Union[bool, str, None] = None, videoid: Union[str, bool, None] = None,
         songaudio: Union[bool, str, None] = None, songvideo: Union[bool, str, None] = None,
@@ -418,7 +475,6 @@ class YouTubeAPI:
             if yt_result: return yt_result, True
             return None, None
 
-    # 🟢 FULLY RESTORED AUTOPLAY FUNCTION
     @capture_internal_err
     async def autoplay(self, last_vidid: str, title: str, max_duration: int = None):
         try:
@@ -483,7 +539,9 @@ class YouTubeAPI:
                             "duration_sec": dur_sec
                         })
 
-            if valid_choices: return random.choice(valid_choices)
+            if valid_choices: 
+                pool_size = min(len(valid_choices), 5)
+                return random.choice(valid_choices[:pool_size])
             return None
             
         except Exception as e:
